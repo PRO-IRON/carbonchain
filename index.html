@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CarbonChain</title>
+  <!-- Entry point for static hosting (e.g. AWS Amplify serves index.html at "/").
+       The app itself lives in main.html; this page only forwards to it, keeping any ?query or #hash. -->
+  <meta http-equiv="refresh" content="0; url=main.html" />
+  <script>location.replace('main.html' + location.search + location.hash);</script>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: #0a0f0a; color: #e8f5e8; font-family: system-ui, sans-serif; }
+    a { color: #22c55e; }
+  </style>
+</head>
+<body>
+  <p>Loading CarbonChain&hellip; <a href="main.html">Continue</a></p>
+</body>
+</html>
