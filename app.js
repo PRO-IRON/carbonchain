@@ -3154,14 +3154,28 @@ let ecoSelectedProjectId = null;
 let ecoSelectedParcelId = null;
 let parcelGeoJsonCache = {};
 
+// MapTiler API Key placeholder - replace 'YOUR_MAPTILER_KEY' with your MapTiler key from https://cloud.maptiler.com/
+// You can also set window.MAPTILER_API_KEY dynamically in your environment or browser console.
+const MAPTILER_API_KEY = (typeof window !== 'undefined' && window.MAPTILER_API_KEY) ? window.MAPTILER_API_KEY : 'YOUR_MAPTILER_KEY';
+
 const ECO_BASEMAPS = {
   osm: {
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    opts: { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }
+    opts: {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }
   },
   satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    opts: { attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics', maxZoom: 18 }
+    url: `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${MAPTILER_API_KEY}`,
+    opts: {
+      tileSize: 512,
+      zoomOffset: -1,
+      minZoom: 0,
+      maxZoom: 22,
+      attribution: '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a>',
+      crossOrigin: true
+    }
   }
 };
 
@@ -3498,14 +3512,45 @@ function renderVisibleParcelPolygons(targetProjectId) {
 function setEcoBasemap(type) {
   if (!ecoMapInstance) return;
   const targetType = ECO_BASEMAPS[type] ? type : 'osm';
+
+  // Remove active basemap tile layers to prevent duplicate layer stacking,
+  // without disturbing parcel polygons, environmental markers, or canopy zones
   Object.values(ecoMapTileLayers).forEach(l => {
-    if (ecoMapInstance.hasLayer(l)) ecoMapInstance.removeLayer(l);
+    if (l && ecoMapInstance.hasLayer(l)) ecoMapInstance.removeLayer(l);
   });
+
+  const activeKey = ((typeof window !== 'undefined' && window.MAPTILER_API_KEY) || MAPTILER_API_KEY || '').trim();
+
+  // If satellite layer exists but the API key changed, invalidate cached layer so it re-creates with the new key
+  if (targetType === 'satellite' && ecoMapTileLayers['satellite'] && ecoMapTileLayers['satellite']._currentKey !== activeKey) {
+    delete ecoMapTileLayers['satellite'];
+  }
 
   if (!ecoMapTileLayers[targetType]) {
     const conf = ECO_BASEMAPS[targetType] || ECO_BASEMAPS.osm;
-    ecoMapTileLayers[targetType] = L.tileLayer(conf.url, conf.opts);
+    let tileUrl = conf.url;
+    let tileOpts = { ...conf.opts };
+
+    if (targetType === 'satellite') {
+      tileUrl = `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${activeKey}`;
+      if (activeKey === 'YOUR_MAPTILER_KEY' || !activeKey) {
+        console.warn('[CarbonChain Eco Map] Using placeholder MapTiler API key ("YOUR_MAPTILER_KEY"). To view MapTiler Satellite Hybrid imagery, replace YOUR_MAPTILER_KEY in main.html or set window.MAPTILER_API_KEY in the browser console. Free key at https://cloud.maptiler.com/');
+      }
+    }
+
+    const layer = L.tileLayer(tileUrl, tileOpts);
+    if (targetType === 'satellite') {
+      layer._currentKey = activeKey;
+      layer.on('tileerror', function () {
+        if (!layer._errorLogged) {
+          layer._errorLogged = true;
+          console.warn('[CarbonChain Eco Map] MapTiler tile request failed. Please verify your MapTiler API key at https://cloud.maptiler.com/');
+        }
+      });
+    }
+    ecoMapTileLayers[targetType] = layer;
   }
+
   ecoMapTileLayers[targetType].addTo(ecoMapInstance);
   ecoCurrentBasemap = targetType;
 
