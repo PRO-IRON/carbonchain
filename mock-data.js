@@ -210,14 +210,10 @@
   function isDemoMode() { return !(window.CC_CONFIG && window.CC_CONFIG.API_URL); }
 
   function decorate() {
-    if (!isDemoMode() || document.getElementById('demoPill')) return;
-    var right = document.querySelector('.nav-right');
-    if (right) {
-      var pill = document.createElement('span');
-      pill.id = 'demoPill'; pill.className = 'demo-pill'; pill.textContent = 'DEMO DATA';
-      pill.title = 'Simulated data for demonstration. Set API_URL in config.js to use the AWS backend.';
-      right.insertBefore(pill, right.firstChild);
-    }
+    if (!isDemoMode()) return;
+    var pill = document.getElementById('demoPill');
+    if (pill) pill.hidden = false;
+    if (document.querySelector('.demo-footer')) return;
     var foot = document.createElement('div');
     foot.className = 'demo-footer';
     foot.innerHTML = 'Simulated data for demonstration &middot; <a href="#" onclick="CC_MOCK.reset();return false;">Reset demo data</a>';

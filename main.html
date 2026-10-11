@@ -28,49 +28,57 @@
   </div>
 
   <!-- ── NAVBAR ── -->
-  <nav>
+  <nav id="mainNav">
     <a class="nav-logo" onclick="showPage('marketplace')">
       <div class="nav-logo-icon">🌿</div>
-      Carbon<span>Chain</span>
+      <span class="nav-logo-text">Carbon<em>Chain</em></span>
+      <b class="demo-chip" id="demoPill" hidden title="Simulated data for demonstration. Set API_URL in config.js to use the AWS backend.">DEMO</b>
     </a>
-    <ul class="nav-links" id="nav-links">
-      <li><a onclick="showPage('marketplace')" id="nav-marketplace" class="active">🏠 Home</a></li>
-      <li><a onclick="showPage('projects')" id="nav-projects">Projects</a></li>
-      <li><a onclick="showPage('map')" id="nav-map">🌍 Eco Map</a></li>
-      <li><a onclick="showPage('ledger')" id="nav-ledger">🔗 Token Ledger</a></li>
-      <li id="nav-buyer-tab" style="display:none"><a onclick="showPage('buyer-dashboard')" id="nav-buyer-dashboard">My
-          Portfolio</a></li>
-      <li id="nav-seller-tab" style="display:none"><a onclick="showPage('seller-dashboard')"
-          id="nav-seller-dashboard">Seller Hub</a></li>
-      <li><a onclick="showPage('security')" id="nav-security">Security</a></li>
-      <li><a onclick="showPage('bounty-board')" id="nav-bounty-board">🚁 Bounty Board</a></li>
-      <li><a onclick="showPage('calculator')" id="nav-calculator">CO₂ Calc</a></li>
-    </ul>
-    <div class="nav-right">
-      <button class="api-key-btn connected" id="apiKeyNavBtn"
-        onclick="document.getElementById('apiKeyModal').classList.add('open')">
-        <span id="apiKeyNavIcon">🤖</span> <span id="apiKeyNavLabel">AI Active</span>
-      </button>
-      <div class="lang-switcher">
-        <div class="lang-label">LANGUAGE</div>
-        <button class="lang-btn" id="langBtn" onclick="toggleLangDropdown(event)">
-          <span id="langFlag">🇬🇧</span> <span id="langName">EN</span> <span
-            style="font-size:10px;color:var(--text3)">▾</span>
+    <button class="nav-toggle" id="navToggle" aria-label="Menu" aria-expanded="false" onclick="toggleNavPanel(event)">☰</button>
+    <div class="nav-panel" id="navPanel">
+      <ul class="nav-links" id="nav-links">
+        <li><a onclick="showPage('marketplace')" id="nav-marketplace" class="active">Home</a></li>
+        <li><a onclick="showPage('projects')" id="nav-projects">Projects</a></li>
+        <li><a onclick="showPage('map')" id="nav-map">Eco Map</a></li>
+        <li><a onclick="showPage('ledger')" id="nav-ledger">Token Ledger</a></li>
+        <li id="nav-buyer-tab" style="display:none"><a onclick="showPage('buyer-dashboard')" id="nav-buyer-dashboard">My Portfolio</a></li>
+        <li id="nav-seller-tab" style="display:none"><a onclick="showPage('seller-dashboard')" id="nav-seller-dashboard">Seller Hub</a></li>
+        <li class="nav-more" id="nav-more-li">
+          <button class="nav-more-btn" id="nav-more" aria-haspopup="menu" aria-expanded="false" onclick="toggleNavMenu('nav-more-li', event)">More <span class="nav-caret">▾</span></button>
+          <ul class="nav-more-menu" role="menu">
+            <li><a onclick="showPage('security')" id="nav-security" role="menuitem">Security</a></li>
+            <li><a onclick="showPage('bounty-board')" id="nav-bounty-board" role="menuitem">Bounty Board</a></li>
+            <li><a onclick="showPage('calculator')" id="nav-calculator" role="menuitem">CO₂ Calc</a></li>
+          </ul>
+        </li>
+      </ul>
+      <div class="nav-right">
+        <button class="api-key-btn connected" id="apiKeyNavBtn" title="AI assistant status. Click to configure." aria-label="AI assistant status"
+          onclick="document.getElementById('apiKeyModal').classList.add('open')">
+          <span id="apiKeyNavIcon">🤖</span> <span id="apiKeyNavLabel">AI Active</span>
         </button>
-        <div class="lang-dropdown" id="langDropdown"></div>
-      </div>
-      <div id="nav-auth-btns">
-        <button class="btn-outline" onclick="showPage('login')" style="margin-right:8px">Sign In</button>
-        <button class="btn-login" onclick="showPage('register')">Get Started</button>
-      </div>
-      <div id="nav-user-info" style="display:none;align-items:center;gap:8px">
-        <div class="nav-user-pill" onclick="handleUserMenu()">
-          <div class="nav-user-dot"></div>
-          <span id="nav-username">User</span>
-          <span class="nav-role-badge" id="nav-role-badge">buyer</span>
-          <span style="color:var(--text3);font-size:12px">▾</span>
+        <div class="lang-switcher">
+          <button class="lang-btn" id="langBtn" title="Language" aria-label="Language" onclick="toggleLangDropdown(event)">
+            <span id="langFlag">🇬🇧</span> <span id="langName">EN</span> <span class="nav-caret">▾</span>
+          </button>
+          <div class="lang-dropdown" id="langDropdown"></div>
         </div>
-        <button class="btn-outline" onclick="logout()">Sign Out</button>
+        <div id="nav-auth-btns">
+          <button class="nav-signin" onclick="showPage('login')">Sign In</button>
+          <button class="btn-login" onclick="showPage('register')">Get Started</button>
+        </div>
+        <div id="nav-user-info" class="nav-user" style="display:none">
+          <button class="nav-user-pill" aria-haspopup="menu" aria-expanded="false" onclick="toggleNavMenu('nav-user-info', event)">
+            <span class="nav-avatar" id="nav-avatar">U</span>
+            <span id="nav-username">User</span>
+            <span class="nav-role-badge" id="nav-role-badge">buyer</span>
+            <span class="nav-caret">▾</span>
+          </button>
+          <div class="nav-user-menu" id="userMenu" role="menu">
+            <a role="menuitem" onclick="handleUserMenu();closeNavMenus()">📊 My dashboard</a>
+            <a role="menuitem" onclick="logout();closeNavMenus()">↩ Sign out</a>
+          </div>
+        </div>
       </div>
     </div>
   </nav>

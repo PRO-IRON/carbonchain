@@ -199,7 +199,7 @@
 
   function updateNavForUser(user) {
     const authBtns = document.getElementById('nav-auth-btns'), userInfo = document.getElementById('nav-user-info'), bt = document.getElementById('nav-buyer-tab'), st = document.getElementById('nav-seller-tab');
-    if (user) { authBtns.style.display = 'none'; userInfo.style.display = 'flex'; document.getElementById('nav-username').textContent = user.full_name.split(' ')[0]; const b = document.getElementById('nav-role-badge'); b.textContent = user.role; b.className = 'nav-role-badge ' + user.role; bt.style.display = user.role === 'buyer' ? 'list-item' : 'none'; st.style.display = user.role === 'seller' ? 'list-item' : 'none'; }
+    if (user) { authBtns.style.display = 'none'; userInfo.style.display = 'flex'; document.getElementById('nav-username').textContent = user.full_name.split(' ')[0]; document.getElementById('nav-avatar').textContent = (user.full_name || 'U').trim().charAt(0).toUpperCase(); const b = document.getElementById('nav-role-badge'); b.textContent = user.role; b.className = 'nav-role-badge ' + user.role; bt.style.display = user.role === 'buyer' ? 'list-item' : 'none'; st.style.display = user.role === 'seller' ? 'list-item' : 'none'; }
     else { authBtns.style.display = 'flex'; userInfo.style.display = 'none'; bt.style.display = 'none'; st.style.display = 'none'; }
   }
 
@@ -215,6 +215,8 @@
     pg.classList.add('active');
     const navEl = document.getElementById('nav-' + page) || document.getElementById('nav-' + page.replace('-', '_'));
     if (navEl) navEl.classList.add('active');
+    document.getElementById('nav-more')?.classList.toggle('active', !!document.querySelector('.nav-more-menu a.active'));
+    closeNavMenus(); closeNavPanel();
     window.scrollTo(0, 0);
     if (page === 'marketplace') loadMarketplace();
     if (page === 'projects') loadProjects();
@@ -1473,7 +1475,35 @@
 
   function t(key) { return (I18N[currentLang] || I18N.en)[key] || (I18N.en)[key] || key; }
 
-  function toggleLangDropdown(e) { e && e.stopPropagation(); const dd = document.getElementById('langDropdown'); dd.classList.toggle('open'); if (dd.classList.contains('open')) renderLangDropdown(); }
+  // ── Navbar menus (More dropdown, user menu, mobile panel) ──
+  function closeNavMenus() {
+    document.querySelectorAll('.nav-more.open, .nav-user.open').forEach(el => { el.classList.remove('open'); el.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'false'); });
+  }
+  function toggleNavMenu(id, e) {
+    e && e.stopPropagation();
+    const el = document.getElementById(id); if (!el) return;
+    const willOpen = !el.classList.contains('open');
+    closeNavMenus();
+    document.getElementById('langDropdown')?.classList.remove('open');
+    el.classList.toggle('open', willOpen);
+    el.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', String(willOpen));
+  }
+  function closeNavPanel() {
+    const nav = document.getElementById('mainNav'), t = document.getElementById('navToggle');
+    if (!nav || !nav.classList.contains('menu-open')) return;
+    nav.classList.remove('menu-open'); t.setAttribute('aria-expanded', 'false'); t.textContent = '☰';
+  }
+  function toggleNavPanel(e) {
+    e && e.stopPropagation();
+    const nav = document.getElementById('mainNav'), t = document.getElementById('navToggle');
+    const open = nav.classList.toggle('menu-open');
+    t.setAttribute('aria-expanded', String(open)); t.textContent = open ? '✕' : '☰';
+    closeNavMenus();
+  }
+  document.addEventListener('click', e => { if (!e.target.closest('.nav-more, .nav-user')) closeNavMenus(); if (!e.target.closest('#mainNav')) closeNavPanel(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeNavMenus(); closeNavPanel(); document.getElementById('langDropdown')?.classList.remove('open'); } });
+
+  function toggleLangDropdown(e) { e && e.stopPropagation(); closeNavMenus(); const dd = document.getElementById('langDropdown'); dd.classList.toggle('open'); if (dd.classList.contains('open')) renderLangDropdown(); }
 
   function renderLangDropdown() {
     const dd = document.getElementById('langDropdown');
@@ -1494,11 +1524,12 @@
     const tr = I18N[currentLang] || I18N.en;
     // Nav links
     const navMap = { 'nav-marketplace': 'marketplace', 'nav-projects': 'projects', 'nav-ledger': 'token_ledger', 'nav-buyer-dashboard': 'my_portfolio', 'nav-seller-dashboard': 'seller_hub', 'nav-security': 'security', 'nav-calculator': 'co2_calc' };
-    Object.entries(navMap).forEach(([id, key]) => { const el = document.getElementById(id); if (el && tr[key]) el.textContent = tr[key]; });
+    const plain = s => s.replace(/^[^\p{L}\p{N}]+/u, '');  // strip a leading emoji/symbol from nav labels
+    Object.entries(navMap).forEach(([id, key]) => { const el = document.getElementById(id); if (el && tr[key]) el.textContent = plain(tr[key]); });
     // Auth buttons
-    const signInBtn = document.querySelector('#nav-auth-btns .btn-outline'); if (signInBtn) signInBtn.textContent = tr.sign_in || 'Sign In';
+    const signInBtn = document.querySelector('#nav-auth-btns .nav-signin'); if (signInBtn) signInBtn.textContent = tr.sign_in || 'Sign In';
     const getStartedBtn = document.querySelector('#nav-auth-btns .btn-login'); if (getStartedBtn) getStartedBtn.textContent = tr.get_started || 'Get Started';
-    const signOutBtn = document.querySelector('#nav-user-info .btn-outline'); if (signOutBtn) signOutBtn.textContent = tr.sign_out || 'Sign Out';
+    const signOutItem = document.querySelector('#userMenu a:last-child'); if (signOutItem) signOutItem.textContent = '↩ ' + (tr.sign_out || 'Sign out');
     // Hero
     const heroTag = document.querySelector('.hero-tag'); if (heroTag) heroTag.innerHTML = (tr.hero_tag || 'Blockchain Verified');
     const heroH1 = document.querySelector('.hero h1'); if (heroH1) heroH1.innerHTML = `${tr.hero_title_1 || 'Trade '}<span>${tr.hero_title_hl || 'Carbon Credits'}</span><br>${tr.hero_title_2 || 'Transparently'}`;
