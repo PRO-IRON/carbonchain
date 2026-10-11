@@ -33,20 +33,21 @@
   let TOKEN_LEDGER = [];
   (function initLedger() {
     const statuses = ['active', 'active', 'active', 'active', 'active', 'retired'];
+    const rnd = CC_MOCK.rng(20260101);  // deterministic: the ledger looks identical on every load
     MOCK_PROJECTS.forEach((p, pi) => {
       for (let i = 0; i < Math.min(p.total_credits - p.available_credits + 3, 8); i++) {
         const tokenNum = String(pi * 100 + i + 1).padStart(4, '0');
-        const burned = statuses[Math.floor(Math.random() * statuses.length)] === 'retired';
+        const burned = statuses[Math.floor(rnd() * statuses.length)] === 'retired';
         TOKEN_LEDGER.push({
           id: 'CC-' + tokenNum,
           projectId: p.id,
           projectName: p.name,
           projectType: p.type,
-          owner: burned ? 'BURNED' : ('0x' + Math.random().toString(16).slice(2, 12) + '...'),
+          owner: burned ? 'BURNED' : ('0x' + CC_MOCK.hex(rnd, 10) + '...'),
           status: burned ? 'retired' : 'active',
           vintage: p.vintage_year,
           mintedAt: '2024-0' + (pi + 1) + '-15',
-          txHash: '0x' + Math.random().toString(16).slice(2, 34),
+          txHash: '0x' + CC_MOCK.hex(rnd, 32),
           prevOwners: [p.seller_name.slice(0, 8) + '...0x'],
         });
       }
@@ -244,7 +245,7 @@
     if (!LAMBDA_URL) return null;
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 6000);
     try {
-      const r = await fetch(LAMBDA_URL + path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal });
+      const r = await lambdaFetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal });
       return r.ok ? await r.json() : null;
     } catch (_) { return null; } finally { clearTimeout(timer); }
   }
@@ -277,7 +278,7 @@
     return true;
   }
 
-  function loadMarketplace() { state.allProjects = [...MOCK_PROJECTS]; renderListings(state.allProjects); syncProjectsFromApi().then(ok => { if (ok && document.getElementById('page-marketplace').classList.contains('active')) { state.allProjects = [...MOCK_PROJECTS]; filterListings(); } }); if (state.user?.role === 'buyer') state.watchlist = db.watchlist.filter(w => w.userId === state.user.id).map(w => w.projectId); renderPriceChart(); }
+  function loadMarketplace() { state.allProjects = [...MOCK_PROJECTS]; CC_MOCK.updateHero(MOCK_PROJECTS); renderListings(state.allProjects); syncProjectsFromApi().then(ok => { if (ok && document.getElementById('page-marketplace').classList.contains('active')) { state.allProjects = [...MOCK_PROJECTS]; filterListings(); } }); if (state.user?.role === 'buyer') state.watchlist = db.watchlist.filter(w => w.userId === state.user.id).map(w => w.projectId); renderPriceChart(); }
 
   function filterListings() {
     const search = document.getElementById('searchInput').value.toLowerCase(), type = document.getElementById('typeFilter').value, sort = document.getElementById('sortFilter').value;
@@ -553,8 +554,8 @@
   function toggleWatchlist(projectId, btn) {
     if (!state.user) { showToast('Sign in to save listings', 'error'); return; }
     const idx = state.watchlist.indexOf(projectId);
-    if (idx >= 0) { state.watchlist.splice(idx, 1); db.watchlist = db.watchlist.filter(w => !(w.userId === state.user.id && w.projectId === projectId)); btn.textContent = '☆'; btn.classList.remove('saved'); showToast('Removed from watchlist', 'info'); }
-    else { state.watchlist.push(projectId); db.watchlist.push({ userId: state.user.id, projectId }); btn.textContent = '★'; btn.classList.add('saved'); showToast('⭐ Saved to watchlist', 'success'); }
+    if (idx >= 0) { state.watchlist.splice(idx, 1); db.watchlist = db.watchlist.filter(w => !(w.userId === state.user.id && w.projectId === projectId)); btn.textContent = '☆'; btn.classList.remove('saved'); showToast('Removed from watchlist', 'info'); saveDemoState(); }
+    else { state.watchlist.push(projectId); db.watchlist.push({ userId: state.user.id, projectId }); btn.textContent = '★'; btn.classList.add('saved'); showToast('⭐ Saved to watchlist', 'success'); saveDemoState(); }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -670,6 +671,7 @@
     simulateEmailNotification('retire', { company: state.user.full_name, credits: amt, project: p.name, txHash: burnTxHash });
 
     state.allProjects = [...MOCK_PROJECTS];
+    saveDemoState();
     btn.disabled = false; btn.textContent = '✅ Confirm Purchase';
   }
 
@@ -681,6 +683,9 @@
     document.getElementById('buyer-wallet-display').textContent = user.wallet_address ? truncate(user.wallet_address) : 'No wallet connected';
     const userTxns = db.transactions.filter(t => t.buyer_id === user.id);
     const userHoldings = db.holdings.filter(h => h.userId === user.id);
+    state.watchlist = db.watchlist.filter(w => w.userId === user.id).map(w => w.projectId);
+    const myAddr = user.wallet_address ? truncate(user.wallet_address) : '0xYou...';
+    const myRetiredCount = TOKEN_LEDGER.filter(t => t.status === 'retired' && (t.prevOwners?.includes(myAddr) || userTxns.some(tx => tx.token_ids?.includes(t.id)))).length;
     const totalCo2 = userHoldings.reduce((s, h) => s + h.credits, 0);
     document.getElementById('bd-credits').textContent = user.credit_balance ?? 0;
     document.getElementById('bd-co2').textContent = totalCo2 + 't';
@@ -690,7 +695,7 @@
   <div class="impact-badge"><div class="impact-badge-icon">🌳</div><div><div class="impact-badge-text">Trees equivalent</div><div class="impact-badge-val">${trees.toLocaleString()}</div></div></div>
   <div class="impact-badge"><div class="impact-badge-icon">✈️</div><div><div class="impact-badge-text">Flights offset</div><div class="impact-badge-val">${flights}</div></div></div>
   <div class="impact-badge"><div class="impact-badge-icon">🏠</div><div><div class="impact-badge-text">Homes powered/yr</div><div class="impact-badge-val">${Math.round(totalCo2 / 4.5)}</div></div></div>
-  <div class="impact-badge"><div class="impact-badge-icon">🔥</div><div><div class="impact-badge-text">Tokens retired</div><div class="impact-badge-val">${TOKEN_LEDGER.filter(t => t.status === 'retired' && t.owner === 'BURNED').length}</div></div></div>`;
+  <div class="impact-badge"><div class="impact-badge-icon">🔥</div><div><div class="impact-badge-text">Tokens retired</div><div class="impact-badge-val">${myRetiredCount}</div></div></div>`;
     document.getElementById('holdings-list').innerHTML = userHoldings.length ? userHoldings.map(h => `
   <div class="holding-row"><div class="holding-icon">${TYPE_ICONS[h.project?.type] || '🌿'}</div><div class="holding-info"><div class="holding-name">${h.project?.name}</div><div class="holding-loc">📍 ${h.project?.location}</div></div><div><div class="holding-credits">${h.credits} credits</div><div style="font-family:var(--mono);font-size:11px;color:var(--text3);text-align:right">${h.credits}t CO₂</div></div></div>`).join('')
       : `<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No holdings yet</div></div>`;
@@ -735,7 +740,9 @@
     const totalEarned = mySales.reduce((s, t) => s + parseFloat(t.total_amount) * 0.975, 0);
     const creditsSold = mySales.reduce((s, t) => s + t.credits, 0);
     document.getElementById('se-total').textContent = totalEarned.toFixed(4) + ' ETH';
-    document.getElementById('se-pending').textContent = '0.0000 ETH';
+    const payoutOf = p => db.transactions.filter(t => t.project_id === p.id).reduce((s, t) => s + parseFloat(t.total_amount) * 0.975, 0);
+    const pending = myProjects.reduce((s, p) => { const e = state.escrows?.[p.id]; return s + (e?.released ? 0 : (e ? e.amount : payoutOf(p) * 0.7)); }, 0);
+    document.getElementById('se-pending').textContent = pending.toFixed(4) + ' ETH';
     document.getElementById('se-sold').textContent = creditsSold + ' credits';
     document.getElementById('se-listings').textContent = myProjects.filter(p => p.available_credits > 0).length;
 
@@ -1215,6 +1222,7 @@
     MOCK_PROJECTS.push(f);
     api('POST', '/api/projects', { project_id: f.id, name: f.name, type: f.type, location: f.location, lat: gpsLat, lng: gpsLng, area_ha: areaHa, seller_wallet: state.user.wallet_address || state.user.id, seller_id: state.user.id, seller_name: companyName, company_name: companyName, reg_number: regNumber, issuing_body: issuingBody, country, description: f.description, vintage_year: f.vintage_year, total_credits: f.total_credits, available_credits: f.available_credits, price_per_ton_eth: f.price_per_credit, dataStatus: 'PENDING', status: 'ACTIVE' });
     EVIDENCE_VAULT[f.id] = { score: 0, label: 'Pending', sat_dates: [], iot_sensors: 0, auditor: 'Pending', standard: document.getElementById('f-standard')?.value || 'Verra VCS', ipfs: 'Qm' + Math.random().toString(36).slice(2, 50), gps: `${gpsLat}°, ${gpsLng}°`, gps_lat: gpsLat, gps_lng: gpsLng, gps_source: gpsSource, area_ha: areaHa, trees_count: 0, co2_verified: false, company: companyName, reg_number: regNumber, issuing_body: issuingBody, license_file: uploadedLicenseFile?.name || '', has_license: true };
+    saveDemoState();
     status.textContent = '✅ Project submitted with verified license & satellite imagery!';
     showToast('🎉 Project submitted! License verified. Satellite cross-check in progress.', 'success');
     // Reset all fields
@@ -1924,6 +1932,7 @@
     // Simulate email notification
     simulateEmailNotification('retire', { company, credits: amt, project: retireTarget.projectName, txHash });
     retireTarget = null;
+    saveDemoState();
     if (document.getElementById('page-ledger').classList.contains('active')) loadLedger();
     if (document.getElementById('page-buyer-dashboard').classList.contains('active')) loadBuyerDashboard();
   }
@@ -2471,6 +2480,8 @@
   // TASK 1 — UNLOCK ESCROW (Satellite MRV / NDVI)
   // ═══════════════════════════════════════════════════════════
   const LAMBDA_URL = ((window.CC_CONFIG && window.CC_CONFIG.API_URL) || '').replace(/\/$/, '');
+  // Skips the network entirely in demo mode so callers drop straight into their built-in fallbacks.
+  function lambdaFetch(path, opts) { return LAMBDA_URL ? fetch(LAMBDA_URL + path, opts) : Promise.reject(new Error('demo mode: no API_URL configured')); }
 
   async function unlockEscrow(projectId, parcelId, projectName) {
     const btn = [...document.querySelectorAll('.btn-escrow')].find(b => b.onclick?.toString().includes(projectId));
@@ -2482,7 +2493,7 @@
     try {
       let ndviData;
       try {
-        const resp = await fetch(LAMBDA_URL + '/verify-ndvi', {
+        const resp = await lambdaFetch('/verify-ndvi', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ parcelId })
@@ -2510,12 +2521,14 @@
         // Update local escrow state
         if (!state.escrows) state.escrows = {};
         state.escrows[projectId] = { released: true, amount: 0 };
+        saveDemoState();
         showToast(`✅ Escrow RELEASED! Canopy growth ${ndviData.canopy_growth_pct.toFixed(1)}% > 15% threshold. 70% funds unlocked to seller.`, 'success');
         await sleep(600);
         loadSellerDashboard();
       } else {
         if (!state.escrows) state.escrows = {};
-        if (!state.escrows[projectId]) state.escrows[projectId] = { released: false, amount: parseFloat((Math.random() * 0.5 + 0.05).toFixed(4)) };
+        if (!state.escrows[projectId]) state.escrows[projectId] = { released: false, amount: parseFloat((db.transactions.filter(t => t.project_id === projectId).reduce((s, t) => s + parseFloat(t.total_amount) * 0.975, 0) * 0.7).toFixed(4)) };
+        saveDemoState();
         showToast(`⏳ NDVI growth ${ndviData.canopy_growth_pct.toFixed(1)}% — below 15% threshold. Escrow stays locked.`, 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = '🛰️ Unlock Escrow'; }
       }
@@ -2599,7 +2612,27 @@
   function loadBountyBoard() {
     const grid = document.getElementById('bountyGrid');
     if (!grid) return;
-    grid.innerHTML = BOUNTY_SITES.map(site => `
+    const walletInput = document.getElementById('auditor-wallet');
+    if (walletInput && !walletInput.value) walletInput.value = state.user?.wallet_address || '';
+    grid.innerHTML = BOUNTY_SITES.map(site => site.status === 'verified' ? `
+      <div class="bounty-card" id="bcard-${site.id}">
+        <div class="bounty-card-header">
+          <div>
+            <div style="font-size:10px;font-family:var(--mono);color:var(--purple);letter-spacing:1px;margin-bottom:3px">${site.type}</div>
+            <div class="bounty-site-name">${site.name}</div>
+            <div class="bounty-coords">📍 ${site.coords}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="bounty-reward">${site.reward}</div>
+            <div style="font-size:10px;color:var(--green);margin-top:2px">PAID OUT</div>
+          </div>
+        </div>
+        <div class="bounty-body">
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">📍 ${site.location} &nbsp;·&nbsp; <span style="font-family:var(--mono)">${site.parcelId}</span></div>
+          <div class="bounty-result pass">✅ AI VERIFIED — real saplings confirmed (${site.confidence}% confidence)<br>
+            <span style="font-weight:400;font-family:var(--mono);font-size:11px">💸 ${site.reward} sent to ${truncate(site.auditor)} · TX ${site.paidTx.slice(0, 18)}...<br>📅 Verified ${site.verifiedAt}</span></div>
+        </div>
+      </div>` : `
       <div class="bounty-card" id="bcard-${site.id}">
         <div class="bounty-card-header">
           <div>
@@ -2662,7 +2695,7 @@
     let scanResult = null;
     try {
       const base64 = await fileToBase64(file);
-      const resp = await fetch(LAMBDA_URL + '/scan-evidence', {
+      const resp = await lambdaFetch('/scan-evidence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2995,7 +3028,7 @@
     // Returns { verdict:'PASS'|'FAIL', confidence, reasoning, ... }
     try {
       const base64 = await fileToBase64(file);
-      const resp = await fetch(LAMBDA_URL + '/scan-evidence', {
+      const resp = await lambdaFetch('/scan-evidence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3765,6 +3798,10 @@
   }
 
   // INIT
+  // Demo fixtures (see mock-data.js). Replace with API data when the AWS backend is connected.
+  const CC_CTX = { db, state, MOCK_USERS, MOCK_PROJECTS, TOKEN_LEDGER, EVIDENCE_VAULT, BOUNTY_SITES, MOCK_SECURITY_EVENTS, truncate };
+  function saveDemoState() { CC_MOCK.save(CC_CTX); }
+  CC_MOCK.seed(CC_CTX);
   if (state.user) updateNavForUser(state.user);
   startLiveTicker();
   showPage('marketplace');

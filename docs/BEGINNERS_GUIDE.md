@@ -205,6 +205,8 @@ CarbonChain is a **hackathon prototype**. The website is a working demo, but muc
 | AI chat and AI scans, if you add an AI key | Security dashboard numbers and events |
 | Language switching | Bounty payouts and seller earnings |
 
+When you open the site, an amber **DEMO DATA** badge in the top bar tells you the numbers come from a built-in sample dataset (`mock-data.js`): a believable sales history for the seller, a portfolio for the buyer, and so on. Everything you do (buying, retiring, unlocking escrow) is remembered in your browser; use **Reset demo data** at the bottom of the page to start over.
+
 The **AWS backend and the smart contract are written but not yet connected** to the website. Connecting them is the next step (see `PROJECT_STATE.md`).
 
 ---
