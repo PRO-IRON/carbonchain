@@ -2,6 +2,7 @@
 
 import os
 import re
+import uuid
 import logging
 
 logger = logging.getLogger("s3_service")
@@ -36,7 +37,8 @@ def generate_presigned_upload_url(file_name, file_type, folder="evidence", expir
             "status": "ERROR",
             "error": "Invalid filename: only alphanumeric, dash, dot, underscore, and space characters are allowed."
         }
-    key = f"{folder}/{clean_name}"
+    folder = re.sub(r"[^\w\-]", "", folder) or "evidence"
+    key = f"{folder}/{uuid.uuid4().hex[:8]}-{clean_name}"
 
     try:
         if s3_client is None:

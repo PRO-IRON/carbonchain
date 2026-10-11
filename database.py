@@ -330,6 +330,11 @@ def create_project(project_data):
         "escrow_released_percent": int(project_data.get("escrow_released_percent", 30)),
         "created_at": now_iso
     }
+    # Optional descriptive fields sent by the marketplace UI
+    for extra in ("type", "description", "vintage_year", "seller_name", "seller_id", "company_name",
+                  "reg_number", "issuing_body", "country"):
+        if project_data.get(extra) not in (None, ""):
+            item[extra] = project_data[extra]
 
     try:
         if dynamodb is None:
@@ -355,10 +360,7 @@ def get_active_projects(limit=200):
             raise RuntimeError("DynamoDB client unavailable")
 
         table = dynamodb.Table(PROJECTS_TABLE)
-        response = table.scan(
-            FilterExpression=Attr("status").eq("ACTIVE"),
-            Limit=limit
-        )
+        response = table.scan(FilterExpression=Attr("status").eq("ACTIVE"))
         items = response.get("Items", [])
         native_items = _convert_decimals_to_native(items)
         if native_items:
