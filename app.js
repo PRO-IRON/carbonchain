@@ -12497,7 +12497,11 @@ MOCK_PROJECTS.forEach(p => {
       try {
         if (!gpsMap) {
           gpsMap = L.map('gps-map', { scrollWheelZoom: false }).setView([lat, lng], 10);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 18 }).addTo(gpsMap);
+          L.tileLayer(`https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=EaSJE3m52NXQJYIGs6WB`, { 
+            attribution: '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OSM</a>', 
+            maxZoom: 18,
+            crossOrigin: true
+          }).addTo(gpsMap);
           gpsMarker = L.marker([lat, lng], { draggable: true }).addTo(gpsMap);
           gpsMarker.on('dragend', function (e) {
             const p = e.target.getLatLng();
@@ -13999,10 +14003,16 @@ MOCK_PROJECTS.forEach(p => {
     let telemetryCache = {};
     let ecoDebounceTimer = null;
 
+    const MAPTILER_API_KEY = 'EaSJE3m52NXQJYIGs6WB';
+
     const ECO_BASEMAPS = {
       osm: {
-        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        opts: { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 19 }
+        url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}`,
+        opts: { 
+          attribution: '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>', 
+          maxZoom: 19,
+          crossOrigin: true
+        }
       },
       satellite: {
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -14262,7 +14272,7 @@ MOCK_PROJECTS.forEach(p => {
       const btnSat = document.getElementById('btnBaseSat');
       if (btnOsm) btnOsm.classList.toggle('active', type === 'osm');
       if (btnSat) btnSat.classList.toggle('active', type === 'satellite');
-      showToast(`Basemap switched to ${type === 'satellite' ? 'Esri World Imagery Satellite' : 'OpenStreetMap'}`, 'info');
+      showToast(`Basemap switched to ${type === 'satellite' ? 'Esri World Imagery Satellite' : 'Standard Street Map (MapTiler)'}`, 'info');
     }
 
     function toggleEcoCanopyZones() {
